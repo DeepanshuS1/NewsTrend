@@ -1,0 +1,31 @@
+{
+  "log_mae": 1.5817,
+  "log_rmse": 1.9287,
+  "r2_score": 0.167,
+  "raw_mae": 149.39,
+  "total_samples": 87477,
+  "test_samples": 17496,
+  "features": [
+    "char_length",
+    "word_count",
+    "exclamation_count",
+    "question_count",
+    "sentiment_headline",
+    "sentiment_title",
+    "topic_microsoft",
+    "topic_obama",
+    "topic_palestine"
+  ],
+  "feature_coefficients": {
+    "char_length": -0.0097,
+    "word_count": 0.0174,
+    "exclamation_count": 0.338,
+    "question_count": -0.0019,
+    "sentiment_headline": -0.2051,
+    "sentiment_title": -0.347,
+    "topic_microsoft": 0.4517,
+    "topic_obama": 1.6533,
+    "topic_palestine": -0.1342
+  },
+  "intercept": 3.1369
+}

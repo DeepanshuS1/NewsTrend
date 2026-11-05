@@ -1,0 +1,36 @@
+# Python environment
+.venv/
+env/
+venv/
+ENV/
+build/
+dist/
+*.egg-info/
+
+# Python bytecode & caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Streamlit config / cache
+.streamlit/
+*.log
+
+# Large data files (User can download via script / link in data/README.md)
+# Lightweight 5k sample (news_sample_real.csv) is tracked for immediate out-of-the-box execution
+data/News_Final.csv
+
+# Zip archives & temporary scratch files
+*.zip
+social_news_analysis_project.zip
+scratch/
+
+# Report compilation & prompt drafts (not required for project runtime)
+REPORT_DATA.md
+CLAUDE_HANDOFF_PROMPT.md
+evidence/
+
+# OS specific files
+.DS_Store
+Thumbs.db

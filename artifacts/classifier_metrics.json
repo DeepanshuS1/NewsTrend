@@ -1,0 +1,92 @@
+{
+  "accuracy": 0.9949,
+  "macro_precision": 0.9958,
+  "macro_recall": 0.9932,
+  "macro_f1": 0.9945,
+  "weighted_precision": 0.9949,
+  "weighted_recall": 0.9949,
+  "weighted_f1": 0.9949,
+  "total_test_samples": 18644,
+  "class_labels": [
+    "economy",
+    "microsoft",
+    "obama",
+    "palestine"
+  ],
+  "test_distribution": {
+    "economy": 6785,
+    "obama": 5721,
+    "microsoft": 4371,
+    "palestine": 1767
+  },
+  "confusion_matrix": [
+    [
+      6746,
+      0,
+      37,
+      2
+    ],
+    [
+      9,
+      4359,
+      2,
+      1
+    ],
+    [
+      15,
+      1,
+      5705,
+      0
+    ],
+    [
+      21,
+      2,
+      5,
+      1739
+    ]
+  ],
+  "classification_report": {
+    "economy": {
+      "precision": 0.9933735826829627,
+      "recall": 0.9942520265291084,
+      "f1-score": 0.9938126104890984,
+      "support": 6785.0
+    },
+    "microsoft": {
+      "precision": 0.9993122420907841,
+      "recall": 0.997254632807138,
+      "f1-score": 0.998282377189969,
+      "support": 4371.0
+    },
+    "obama": {
+      "precision": 0.9923464950426161,
+      "recall": 0.997203286138787,
+      "f1-score": 0.994768962510898,
+      "support": 5721.0
+    },
+    "palestine": {
+      "precision": 0.9982778415614236,
+      "recall": 0.9841539332201471,
+      "f1-score": 0.9911655742376746,
+      "support": 1767.0
+    },
+    "accuracy": 0.9949045269255524,
+    "macro avg": {
+      "precision": 0.9958275403444466,
+      "recall": 0.9932159696737951,
+      "f1-score": 0.9945073811069101,
+      "support": 18644.0
+    },
+    "weighted avg": {
+      "precision": 0.994915512382566,
+      "recall": 0.9949045269255524,
+      "f1-score": 0.994903112908641,
+      "support": 18644.0
+    }
+  },
+  "text_column_used": "CombinedText",
+  "target_column": "Topic",
+  "total_records": 93219,
+  "train_records": 74575,
+  "random_state": 42
+}
