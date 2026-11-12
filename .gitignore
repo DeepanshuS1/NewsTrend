@@ -13,8 +13,9 @@ __pycache__/
 *$py.class
 .pytest_cache/
 
-# Streamlit config / cache
-.streamlit/
+# Streamlit cache & secrets
+.streamlit/*
+!.streamlit/config.toml
 *.log
 
 # Large data files (User can download via script / link in data/README.md)
