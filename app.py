@@ -802,12 +802,12 @@ with st.sidebar:
             </div>
             <div class="brand-text-col">
                 <div class="brand-main-title">News Intelligence</div>
-                <div class="brand-sub-badge">Enterprise Analytics</div>
+                <div class="brand-sub-badge">v2.5 Production Build</div>
             </div>
         </div>
         <div class="sidebar-status-chip">
             <span class="pulse-dot"></span>
-            <span>PRODUCTION ENGINE • LOCAL INFERENCE</span>
+            <span>SYSTEM READY • CLOUD & LOCAL</span>
         </div>
         <div class="sidebar-section-heading">Workspace Modules</div>
         """,
@@ -839,8 +839,8 @@ with st.sidebar:
     dataset_option = st.selectbox(
         "Data Source Selection",
         [
-            "UCI News Sample (5,000 records)",
             "UCI News Full (93,239 records)",
+            "UCI News Sample (5,000 records)",
             "Synthetic Demo Fallback (60 records)",
             "Upload Custom CSV",
         ],
@@ -849,9 +849,9 @@ with st.sidebar:
     )
 
     custom_file = None
-    source_key = "sample"
-    if "Full" in dataset_option:
-        source_key = "full"
+    source_key = "full"
+    if "Sample" in dataset_option:
+        source_key = "sample"
     elif "Synthetic" in dataset_option:
         source_key = "synthetic"
     elif "Upload" in dataset_option:
@@ -924,7 +924,7 @@ if active_nav == "1. Overview & Quick Guide":
                 </div>
                 <div class="header-status-badge">
                     <span class="status-dot-active"></span>
-                    <span>SYSTEM READY • LOCAL INFERENCE</span>
+                    <span>v2.5 FINAL • 93,219 ARTICLES</span>
                 </div>
             </div>
         </div>
