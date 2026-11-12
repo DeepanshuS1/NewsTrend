@@ -723,9 +723,23 @@ def apply_editorial_chart_theme(fig, height=350):
 
 @st.cache_data(show_spinner=False)
 def get_cached_dataset(source_type: str, custom_file=None):
-    """Cached loader for raw and preprocessed datasets."""
+    """Cached loader for raw and preprocessed datasets (with cloud fallback for 93k full dataset)."""
     if source_type == "full":
-        raw, meta = load_dataset(FULL_DATASET_PATH)
+        if FULL_DATASET_PATH.exists():
+            raw, meta = load_dataset(FULL_DATASET_PATH)
+        else:
+            uci_url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00432/Data/News_Final.csv"
+            try:
+                df_remote = pd.read_csv(uci_url)
+                try:
+                    FULL_DATASET_PATH.parent.mkdir(parents=True, exist_ok=True)
+                    df_remote.to_csv(FULL_DATASET_PATH, index=False)
+                except Exception:
+                    pass
+                raw, meta = load_dataset(df_remote)
+                meta["source_name"] = "News_Final.csv (UCI Cloud Stream)"
+            except Exception:
+                raw, meta = load_dataset(SAMPLE_DATASET_PATH)
     elif source_type == "sample":
         raw, meta = load_dataset(SAMPLE_DATASET_PATH)
     elif source_type == "synthetic":
@@ -741,14 +755,33 @@ def get_cached_dataset(source_type: str, custom_file=None):
 
 @st.cache_resource(show_spinner=False)
 def load_ml_models():
-    """Load trained models and artifacts into cache."""
+    """Load trained models and artifacts into cache, with automatic cloud retraining fallback."""
     classifier = None
     if CLASSIFIER_MODEL_PATH.exists():
-        classifier = joblib.load(CLASSIFIER_MODEL_PATH)
-    
+        try:
+            classifier = joblib.load(CLASSIFIER_MODEL_PATH)
+        except Exception:
+            classifier = None
+
     regressor = None
     if ENGAGEMENT_MODEL_PATH.exists():
-        regressor = joblib.load(ENGAGEMENT_MODEL_PATH)
+        try:
+            regressor = joblib.load(ENGAGEMENT_MODEL_PATH)
+        except Exception:
+            regressor = None
+
+    # Fallback if cloud Python/sklearn version differs from serialized joblib binary
+    if classifier is None or regressor is None:
+        try:
+            from src.train_model import train_text_classifier, train_engagement_regressor
+            raw_s, _ = load_dataset(SAMPLE_DATASET_PATH)
+            clean_s = preprocess_dataset(raw_s)
+            if classifier is None:
+                classifier, _ = train_text_classifier(clean_s)
+            if regressor is None:
+                regressor, _ = train_engagement_regressor(clean_s)
+        except Exception:
+            pass
 
     clf_metrics = load_metrics_from_json(CLASSIFIER_METRICS_PATH)
     eng_metrics = load_metrics_from_json(ENGAGEMENT_METRICS_PATH)
