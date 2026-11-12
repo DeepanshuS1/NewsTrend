@@ -21,6 +21,7 @@ from config import (
     COL_ENGAGEMENT_LI,
     COL_TOTAL_ENGAGEMENT,
 )
+from src.data_loader import detect_schema_mapping
 
 
 def clean_text_string(
@@ -91,6 +92,15 @@ def preprocess_dataset(
     # 1. Deduplication if requested
     if drop_duplicates:
         data = data.drop_duplicates()
+
+    # Auto-map custom CSV columns to canonical roles when standard columns are absent
+    schema_map = detect_schema_mapping(data)
+    if text_col not in data.columns and schema_map.get("text_column"):
+        text_col = schema_map["text_column"]
+    if target_col and target_col not in data.columns and schema_map.get("category_column"):
+        data[target_col] = data[schema_map["category_column"]]
+    if date_col and date_col not in data.columns and schema_map.get("date_column"):
+        data[date_col] = data[schema_map["date_column"]]
 
     # 2. Text Column Handling & Preservation
     if text_col not in data.columns:

@@ -35,11 +35,14 @@ def analyze_temporal_trends(
 
     data = df[df["HasValidDate"]].copy()
 
-    # Apply date filters if provided
+    # Apply date filters if provided (include entire end day when a date string is supplied)
     if start_date:
         data = data[data["ParsedDate"] >= pd.to_datetime(start_date)]
     if end_date:
-        data = data[data["ParsedDate"] <= pd.to_datetime(end_date)]
+        end_dt = pd.to_datetime(end_date)
+        if end_dt.hour == 0 and end_dt.minute == 0 and end_dt.second == 0:
+            end_dt = end_dt + pd.Timedelta(days=1) - pd.Timedelta(microseconds=1)
+        data = data[data["ParsedDate"] <= end_dt]
 
     # Apply topic filter if provided
     if topic_filter and COL_TOPIC in data.columns:

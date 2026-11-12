@@ -11,6 +11,7 @@ from sklearn.linear_model import LogisticRegression, Ridge
 
 from src.evaluate_model import (
     evaluate_classifier,
+    plot_confusion_matrix_plotly,
     predict_text,
 )
 from src.engagement_analysis import predict_engagement_level
@@ -58,6 +59,9 @@ def test_classifier_prediction_valid_input(mock_trained_classifier):
     assert "probabilities" in res
     assert len(res["probabilities"]) == 4
     assert sum(res["probabilities"].values()) == pytest.approx(1.0, 0.01)
+    assert "top_terms" in res
+    assert isinstance(res["top_terms"], list)
+    assert len(res["top_terms"]) > 0
 
 
 def test_classifier_prediction_empty_and_short_input(mock_trained_classifier):
@@ -89,6 +93,10 @@ def test_evaluate_classifier_metrics(mock_trained_classifier):
     assert "confusion_matrix" in metrics
     assert len(metrics["confusion_matrix"]) == 4
     assert "classification_report" in metrics
+
+    fig = plot_confusion_matrix_plotly(metrics["confusion_matrix"], metrics["class_labels"])
+    assert fig is not None
+    assert len(fig.data) > 0
 
 
 def test_predict_engagement_level():

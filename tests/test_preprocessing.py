@@ -51,6 +51,17 @@ def test_preprocess_dataset_features():
     assert cleaned_df["TotalEngagement"].iloc[0] == 17
     assert cleaned_df["LogTotalEngagement"].iloc[0] == pytest.approx(np.log1p(17), 0.01)
 
+    # Verify automatic schema mapping for custom column names
+    custom_df = pd.DataFrame({
+        "news_headline": ["Central bank announces monetary policy rate decision."],
+        "category": ["Economy"],
+        "timestamp": ["2016-05-15 09:30:00"],
+    })
+    custom_clean = preprocess_dataset(custom_df)
+    assert len(custom_clean) == 1
+    assert custom_clean["Topic"].iloc[0] == "economy"
+    assert bool(custom_clean["HasValidDate"].iloc[0]) is True
+
 
 def test_preprocess_dataset_negative_engagement_clipping():
     """Verify untracked engagement indicators (-1) are clipped to 0 for sum but flagged."""

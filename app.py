@@ -1459,6 +1459,16 @@ elif active_nav == "4. News Classifier (Live Test)":
 
                 res_left, res_right = st.columns([1, 1], gap="medium")
                 with res_left:
+                    top_terms = result.get("top_terms", [])
+                    terms_html = ""
+                    if top_terms:
+                        pills = "".join(f"<span class='term-pill'>{t}</span>" for t in top_terms)
+                        terms_html = f"""
+                            <div style="margin-top: 10px;">
+                                <div style="font-size: 0.74rem; font-weight: 600; color: #64748B; text-transform: uppercase; margin-bottom: 4px;">Top Driving Terms (TF-IDF × Weight)</div>
+                                <div>{pills}</div>
+                            </div>
+                        """
                     st.markdown(
                         f"""
                         <div class="result-box">
@@ -1470,6 +1480,7 @@ elif active_nav == "4. News Classifier (Live Test)":
                                 <span style="font-size: 0.82rem; font-weight: 600; color: #64748B; text-transform: uppercase;">Model Confidence Score</span>
                                 <span style="font-family: 'IBM Plex Mono', monospace; font-size: 1.25rem; font-weight: 600; color: #0F172A;">{confidence * 100:.1f}%</span>
                             </div>
+                            {terms_html}
                             <div style="font-size: 0.82rem; color: #334155; margin-top: 10px; line-height: 1.45;">
                                 <strong>Explanation:</strong> The model evaluated n-gram term frequencies and determined this text is most characteristic of <strong>{pred_topic.upper()}</strong> with high mathematical confidence.
                             </div>
@@ -1753,6 +1764,36 @@ elif active_nav == "5. Social Shares Predictor":
         )
         st.plotly_chart(apply_editorial_chart_theme(plot_engagement_by_topic_plotly(clean_df), height=320), width="stretch")
 
+        if eng_metrics:
+            with st.expander("Detailed Engagement Model Evaluation & Feature Coefficients"):
+                em_c1, em_c2 = st.columns([1, 1], gap="medium")
+                with em_c1:
+                    reg_rows = [
+                        {"Metric": "R² Score (Log Target)", "Value": f"{eng_metrics.get('r2_score', 0):.4f}"},
+                        {"Metric": "Log-Scale MAE", "Value": f"{eng_metrics.get('log_mae', 0):.4f}"},
+                        {"Metric": "Log-Scale RMSE", "Value": f"{eng_metrics.get('log_rmse', 0):.4f}"},
+                        {"Metric": "Raw-Scale MAE", "Value": f"{eng_metrics.get('raw_mae', 0):.2f} actions"},
+                        {"Metric": "Evaluated Test Articles", "Value": f"{eng_metrics.get('test_samples', 0):,}"},
+                    ]
+                    st.dataframe(pd.DataFrame(reg_rows), width="stretch", hide_index=True)
+                with em_c2:
+                    coefs = eng_metrics.get("feature_coefficients", {})
+                    if coefs:
+                        coef_df = pd.DataFrame(
+                            list(coefs.items()), columns=["Feature", "Coefficient"]
+                        ).sort_values("Coefficient", ascending=True)
+                        fig_coef = px.bar(
+                            coef_df,
+                            x="Coefficient",
+                            y="Feature",
+                            orientation="h",
+                            title="Ridge Regression Feature Weights (Log-Engagement)",
+                            color="Coefficient",
+                            color_continuous_scale="RdBu_r",
+                        )
+                        fig_coef.update_layout(coloraxis_showscale=False)
+                        st.plotly_chart(apply_editorial_chart_theme(fig_coef, height=280), width="stretch")
+
     # Bottom Module Navigation
     b_col_prev, _, b_col_next = st.columns([1, 2, 1])
     with b_col_prev:
@@ -1826,14 +1867,26 @@ elif active_nav == "6. Data Export & Specs":
             unsafe_allow_html=True,
         )
         if clf_metrics:
-            json_metrics = json.dumps(clf_metrics, indent=2).encode("utf-8")
-            st.download_button(
-                label="Download Metrics Report JSON",
-                data=json_metrics,
-                file_name="classifier_metrics.json",
-                mime="application/json",
-                width="stretch",
-            )
+            dl_c1, dl_c2 = st.columns(2, gap="small")
+            with dl_c1:
+                json_metrics = json.dumps(clf_metrics, indent=2).encode("utf-8")
+                st.download_button(
+                    label="Download Classifier JSON",
+                    data=json_metrics,
+                    file_name="classifier_metrics.json",
+                    mime="application/json",
+                    width="stretch",
+                )
+            with dl_c2:
+                if eng_metrics:
+                    json_eng = json.dumps(eng_metrics, indent=2).encode("utf-8")
+                    st.download_button(
+                        label="Download Engagement JSON",
+                        data=json_eng,
+                        file_name="engagement_metrics.json",
+                        mime="application/json",
+                        width="stretch",
+                    )
 
     st.markdown(
         """
