@@ -82,12 +82,9 @@ NAV_MODULES = [
 def set_active_module(target_module: str):
     """Callback to switch active module across in-page buttons and sidebar."""
     st.session_state["active_nav_module"] = target_module
-    st.session_state["sidebar_radio_selection"] = target_module
 
 if "active_nav_module" not in st.session_state:
     st.session_state["active_nav_module"] = NAV_MODULES[0]
-if "sidebar_radio_selection" not in st.session_state:
-    st.session_state["sidebar_radio_selection"] = NAV_MODULES[0]
 
 
 # =========================================================================
@@ -817,25 +814,12 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    sidebar_idx = (
-        NAV_MODULES.index(st.session_state["active_nav_module"])
-        if st.session_state["active_nav_module"] in NAV_MODULES
-        else 0
-    )
-
-    def on_sidebar_radio_change():
-        st.session_state["active_nav_module"] = st.session_state["sidebar_radio_selection"]
-
-    nav_choice = st.radio(
+    active_nav = st.radio(
         "Module Selection",
         NAV_MODULES,
-        index=sidebar_idx,
-        key="sidebar_radio_selection",
-        on_change=on_sidebar_radio_change,
+        key="active_nav_module",
         label_visibility="collapsed",
     )
-    # Ensure current module is in sync
-    active_nav = st.session_state.get("active_nav_module", nav_choice)
 
     st.markdown(
         """
