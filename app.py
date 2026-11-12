@@ -862,15 +862,6 @@ with st.sidebar:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    with st.expander("Evaluator & Executive Tips"):
-        st.markdown(
-            """
-            - **1-Click Classifier:** Go to Module **4. News Classifier** & click any headline preset.
-            - **Real-Time Virality:** Go to Module **5. Social Shares Predictor** to simulate social interaction tiers.
-            - **Export Data & Artifacts:** Go to Module **6. Data Export & Specs** for CSV tables and JSON metrics.
-            """
-        )
-
     st.markdown(
         """
         <div class="sidebar-specs-card">
