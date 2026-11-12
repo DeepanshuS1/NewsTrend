@@ -17,6 +17,7 @@ DOCS_DIR = BASE_DIR / "docs"
 # Data File Paths
 FULL_DATASET_PATH = DATA_DIR / "News_Final.csv"
 SAMPLE_DATASET_PATH = DATA_DIR / "news_sample_real.csv"
+CUSTOM_DEMO_DATASET_PATH = DATA_DIR / "demo_custom_upload_sample.csv"
 SYNTHETIC_DATASET_PATH = DATA_DIR / "synthetic_demo_sample.csv"
 
 # Model Artifact Paths

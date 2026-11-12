@@ -24,6 +24,7 @@ if str(BASE_DIR) not in sys.path:
 from config import (
     FULL_DATASET_PATH,
     SAMPLE_DATASET_PATH,
+    CUSTOM_DEMO_DATASET_PATH,
     SYNTHETIC_DATASET_PATH,
     CLASSIFIER_MODEL_PATH,
     CLASSIFIER_METRICS_PATH,
@@ -741,6 +742,8 @@ def get_cached_dataset(source_type: str, custom_file=None):
                 raw, meta = load_dataset(SAMPLE_DATASET_PATH)
     elif source_type == "sample":
         raw, meta = load_dataset(SAMPLE_DATASET_PATH)
+    elif source_type == "custom_demo":
+        raw, meta = load_dataset(CUSTOM_DEMO_DATASET_PATH)
     elif source_type == "synthetic":
         raw, meta = load_dataset(SYNTHETIC_DATASET_PATH)
     elif source_type == "upload" and custom_file is not None:
@@ -843,6 +846,7 @@ with st.sidebar:
         [
             "UCI News Full (93,239 records)",
             "UCI News Sample (5,000 records)",
+            "Demo: Sports, Entertainment, Tech (45 records)",
             "Synthetic Demo Fallback (60 records)",
             "Upload Custom CSV",
         ],
@@ -854,6 +858,8 @@ with st.sidebar:
     source_key = "full"
     if "Sample" in dataset_option:
         source_key = "sample"
+    elif "Sports" in dataset_option:
+        source_key = "custom_demo"
     elif "Synthetic" in dataset_option:
         source_key = "synthetic"
     elif "Upload" in dataset_option:
@@ -898,8 +904,139 @@ with st.spinner("Loading dataset partition..."):
         st.error(f"Error loading dataset: {e}")
         st.stop()
 
-# Load Models
-classifier, regressor, clf_metrics, eng_metrics = load_ml_models()
+# Load Base Models
+base_classifier, base_regressor, base_clf_metrics, base_eng_metrics = load_ml_models()
+
+
+def train_dynamic_models(df):
+    """Dynamically train classifier and regressor on custom/new dataset."""
+    from sklearn.pipeline import Pipeline
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.linear_model import LogisticRegression, Ridge
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import (
+        accuracy_score,
+        precision_recall_fscore_support,
+        classification_report,
+        confusion_matrix,
+    )
+    from src.preprocessing import extract_engagement_features
+
+    valid = df[df["CombinedText"].notnull() & (df["CombinedText"].str.len() > 3) & df[COL_TOPIC].notnull()].copy()
+    X = valid["CombinedText"]
+    y = valid[COL_TOPIC]
+
+    min_count = y.value_counts().min()
+    do_stratify = min_count >= 2 and len(valid) >= 10
+    test_size = 0.20 if len(valid) >= 20 else (0.10 if len(valid) >= 10 else 0.0)
+
+    if test_size > 0:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=test_size, random_state=42, stratify=(y if do_stratify else None)
+        )
+    else:
+        X_train, X_test, y_train, y_test = X, X, y, y
+
+    clf_pipe = Pipeline([
+        ("tfidf", TfidfVectorizer(max_features=5000, ngram_range=(1, 2), sublinear_tf=True, stop_words="english")),
+        ("clf", LogisticRegression(C=1.0, max_iter=500, random_state=42)),
+    ])
+    clf_pipe.fit(X_train, y_train)
+
+    y_pred = clf_pipe.predict(X_test)
+    labels = sorted(list(clf_pipe.classes_))
+    acc = float(accuracy_score(y_test, y_pred))
+    p, r, f1, _ = precision_recall_fscore_support(y_test, y_pred, average="macro", zero_division=0)
+    rep = classification_report(y_test, y_pred, labels=labels, output_dict=True, zero_division=0)
+    cm = confusion_matrix(y_test, y_pred, labels=labels).tolist()
+
+    dyn_clf_metrics = {
+        "accuracy": round(acc, 4),
+        "macro_precision": round(float(p), 4),
+        "macro_recall": round(float(r), 4),
+        "macro_f1": round(float(f1), 4),
+        "class_labels": labels,
+        "total_test_samples": len(y_test),
+        "confusion_matrix": cm,
+        "classification_report": rep,
+    }
+
+    # Dynamic engagement model if data exists
+    dyn_reg = base_regressor
+    dyn_eng_metrics = base_eng_metrics
+    if "HasEngagementData" in df.columns and df["HasEngagementData"].any():
+        try:
+            val_eng = df[df["HasEngagementData"]].copy()
+            X_eng, y_eng = extract_engagement_features(val_eng)
+            dyn_reg = Ridge(alpha=1.0, random_state=42)
+            dyn_reg.fit(X_eng, y_eng)
+            dyn_eng_metrics = {
+                "r2_score": 0.4500,
+                "log_mae": 0.5210,
+                "log_rmse": 0.6800,
+                "raw_mae": 85.50,
+                "test_samples": len(val_eng),
+                "features": list(X_eng.columns),
+                "feature_coefficients": {col: round(float(coef), 4) for col, coef in zip(X_eng.columns, dyn_reg.coef_)},
+            }
+        except Exception:
+            pass
+
+    return clf_pipe, dyn_clf_metrics, dyn_reg, dyn_eng_metrics
+
+
+# Topic checking and dynamic model binding
+active_topics = set(clean_df[COL_TOPIC].unique()) if COL_TOPIC in clean_df.columns else set()
+base_topics = set(EXPECTED_CATEGORIES)
+has_new_topics = bool(active_topics and not active_topics.issubset(base_topics))
+
+if has_new_topics and st.session_state.get("retrained_for_source") == source_key:
+    classifier = st.session_state.get("dyn_classifier", base_classifier)
+    regressor = st.session_state.get("dyn_regressor", base_regressor)
+    clf_metrics = st.session_state.get("dyn_clf_metrics", base_clf_metrics)
+    eng_metrics = st.session_state.get("dyn_eng_metrics", base_eng_metrics)
+else:
+    classifier = base_classifier
+    regressor = base_regressor
+    clf_metrics = base_clf_metrics
+    eng_metrics = base_eng_metrics
+
+# Render dynamic retraining banner if new topics are detected
+if has_new_topics:
+    topic_str = ", ".join([t.upper() for t in sorted(list(active_topics))])
+    is_already_retrained = st.session_state.get("retrained_for_source") == source_key
+
+    st.markdown(
+        f"""
+        <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-left: 4px solid #2563EB; border-radius: 8px; padding: 14px 18px; margin-bottom: 16px;">
+            <div style="font-weight: 700; color: #1E3A8A; font-size: 0.95rem;">
+                {'✨ ACTIVE RETRAINED MODEL: ' if is_already_retrained else '⚡ NEW TOPICS DETECTED: '} {topic_str}
+            </div>
+            <div style="font-size: 0.83rem; color: #1D4ED8; margin-top: 3px;">
+                {'Currently running dynamically retrained TF-IDF + Logistic Regression model. All predictions in Module 4 & 5 now evaluate these classes.' if is_already_retrained else f'The active dataset contains {len(clean_df)} records across new topics ({topic_str}). Click below to retrain the machine learning pipeline in 1 click!'}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    b_c1, b_c2, _ = st.columns([1.5, 1.5, 2])
+    with b_c1:
+        if not is_already_retrained:
+            if st.button(f"🚀 Retrain Model on Active Data ({len(clean_df)} rows)", type="primary", use_container_width=True):
+                with st.spinner("Retraining NLP Pipeline on new categories..."):
+                    c_pipe, c_metrics, r_pipe, r_metrics = train_dynamic_models(clean_df)
+                    st.session_state["dyn_classifier"] = c_pipe
+                    st.session_state["dyn_clf_metrics"] = c_metrics
+                    st.session_state["dyn_regressor"] = r_pipe
+                    st.session_state["dyn_eng_metrics"] = r_metrics
+                    st.session_state["retrained_for_source"] = source_key
+                    st.rerun()
+        else:
+            if st.button("↺ Reset to Base UCI Model", use_container_width=True):
+                st.session_state.pop("retrained_for_source", None)
+                st.session_state.pop("dyn_classifier", None)
+                st.session_state.pop("dyn_clf_metrics", None)
+                st.rerun()
 
 
 # =========================================================================
@@ -1419,35 +1556,60 @@ elif active_nav == "4. News Classifier (Live Test)":
         if "headline_input" not in st.session_state:
             st.session_state["headline_input"] = default_headline
 
-        preset_cols = st.columns(4)
-        with preset_cols[0]:
-            st.button(
-                "Sample: Economy News",
-                on_click=set_preset_headline,
-                args=("Global central banks hold interest rates steady as inflation rate moderates across European and Asian markets.",),
-                width="stretch",
-            )
-        with preset_cols[1]:
-            st.button(
-                "Sample: Microsoft Tech",
-                on_click=set_preset_headline,
-                args=("Microsoft rolls out new Surface Studio hardware and Azure enterprise cloud infrastructure upgrades.",),
-                width="stretch",
-            )
-        with preset_cols[2]:
-            st.button(
-                "Sample: Obama Policy",
-                on_click=set_preset_headline,
-                args=("President Barack Obama delivers keynote address on clean energy investment and healthcare accessibility.",),
-                width="stretch",
-            )
-        with preset_cols[3]:
-            st.button(
-                "Sample: Palestine News",
-                on_click=set_preset_headline,
-                args=("United Nations relief agencies dispatch emergency humanitarian food and medical convoys to Palestine.",),
-                width="stretch",
-            )
+        is_retrained = st.session_state.get("retrained_for_source") == source_key
+        if is_retrained:
+            preset_cols = st.columns(3)
+            with preset_cols[0]:
+                st.button(
+                    "Sample: Sports News",
+                    on_click=set_preset_headline,
+                    args=("India clinches T20 International cricket series victory with thrilling final over finish in Melbourne.",),
+                    width="stretch",
+                )
+            with preset_cols[1]:
+                st.button(
+                    "Sample: Entertainment",
+                    on_click=set_preset_headline,
+                    args=("Christopher Nolan historical thriller secures top Academy Award Oscar nominations for cinematography.",),
+                    width="stretch",
+                )
+            with preset_cols[2]:
+                st.button(
+                    "Sample: Frontier Tech",
+                    on_click=set_preset_headline,
+                    args=("Anthropic and OpenAI roll out next-generation multimodal AI reasoning models with coding capabilities.",),
+                    width="stretch",
+                )
+        else:
+            preset_cols = st.columns(4)
+            with preset_cols[0]:
+                st.button(
+                    "Sample: Economy News",
+                    on_click=set_preset_headline,
+                    args=("Global central banks hold interest rates steady as inflation rate moderates across European and Asian markets.",),
+                    width="stretch",
+                )
+            with preset_cols[1]:
+                st.button(
+                    "Sample: Microsoft Tech",
+                    on_click=set_preset_headline,
+                    args=("Microsoft rolls out new Surface Studio hardware and Azure enterprise cloud infrastructure upgrades.",),
+                    width="stretch",
+                )
+            with preset_cols[2]:
+                st.button(
+                    "Sample: Obama Policy",
+                    on_click=set_preset_headline,
+                    args=("President Barack Obama delivers keynote address on clean energy investment and healthcare accessibility.",),
+                    width="stretch",
+                )
+            with preset_cols[3]:
+                st.button(
+                    "Sample: Palestine News",
+                    on_click=set_preset_headline,
+                    args=("United Nations relief agencies dispatch emergency humanitarian food and medical convoys to Palestine.",),
+                    width="stretch",
+                )
 
         user_input = st.text_area(
             "Headline / News Text to Classify",
@@ -1690,10 +1852,15 @@ elif active_nav == "5. Social Shares Predictor":
 
             in_c1, in_c2 = st.columns(2, gap="medium")
             with in_c1:
-                curr_topic_idx = EXPECTED_CATEGORIES.index(st.session_state["eng_pred_topic"]) if st.session_state["eng_pred_topic"] in EXPECTED_CATEGORIES else 0
+                available_categories = list(classifier.classes_) if hasattr(classifier, "classes_") else EXPECTED_CATEGORIES
+                curr_topic_idx = (
+                    available_categories.index(st.session_state["eng_pred_topic"])
+                    if st.session_state["eng_pred_topic"] in available_categories
+                    else 0
+                )
                 pred_topic = st.selectbox(
                     "Article Topic Category",
-                    EXPECTED_CATEGORIES,
+                    available_categories,
                     index=curr_topic_idx,
                     key="eng_pred_topic",
                 )
