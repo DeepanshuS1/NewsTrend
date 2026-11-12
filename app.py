@@ -7,6 +7,8 @@ Designed for high usability, instant clarity, and executive presentation.
 import sys
 from pathlib import Path
 import json
+import warnings
+warnings.filterwarnings("ignore")
 import joblib
 import numpy as np
 import pandas as pd
